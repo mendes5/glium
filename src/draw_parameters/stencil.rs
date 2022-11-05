@@ -1,5 +1,5 @@
-use gl;
 use context;
+use gl;
 use ToGlEnum;
 
 /// Describes the parameters that must be used for the stencil operations when drawing.
@@ -145,7 +145,7 @@ pub enum StencilTest {
     /// `(ref & mask) < (stencil & mask)`
     IfLess {
         /// The mask that is and'ed with the reference value and stencil buffer.
-        mask: u32
+        mask: u32,
     },
 
     /// `(ref & mask) <= (stencil & mask)`
@@ -181,7 +181,7 @@ pub enum StencilTest {
 
 /// Specificies which operation the GPU will do depending on the result of the stencil test.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[repr(u32)]    // GLenum
+#[repr(u32)] // GLenum
 pub enum StencilOperation {
     /// Keeps the value currently in the stencil buffer.
     Keep = gl::KEEP,
@@ -222,16 +222,16 @@ impl ToGlEnum for StencilOperation {
 
 pub fn sync_stencil(ctxt: &mut context::CommandContext, params: &Stencil) {
     // checks if stencil operations can be disabled
-    if params.test_clockwise == StencilTest::AlwaysPass &&
-       params.test_counter_clockwise == StencilTest::AlwaysPass &&
-       params.fail_operation_clockwise == StencilOperation::Keep &&
-       params.pass_depth_fail_operation_clockwise == StencilOperation::Keep &&
-       params.depth_pass_operation_clockwise == StencilOperation::Keep &&
-       params.fail_operation_counter_clockwise == StencilOperation::Keep &&
-       params.pass_depth_fail_operation_counter_clockwise == StencilOperation::Keep &&
-       params.depth_pass_operation_counter_clockwise == StencilOperation::Keep
+    if params.test_clockwise == StencilTest::AlwaysPass
+        && params.test_counter_clockwise == StencilTest::AlwaysPass
+        && params.fail_operation_clockwise == StencilOperation::Keep
+        && params.pass_depth_fail_operation_clockwise == StencilOperation::Keep
+        && params.depth_pass_operation_clockwise == StencilOperation::Keep
+        && params.fail_operation_counter_clockwise == StencilOperation::Keep
+        && params.pass_depth_fail_operation_counter_clockwise == StencilOperation::Keep
+        && params.depth_pass_operation_counter_clockwise == StencilOperation::Keep
     {
-        if ctxt.state.enabled_stencil_test != false {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_stencil_test != false {
             unsafe { ctxt.gl.Disable(gl::STENCIL_TEST) };
             ctxt.state.enabled_stencil_test = false;
         }
@@ -242,7 +242,7 @@ pub fn sync_stencil(ctxt: &mut context::CommandContext, params: &Stencil) {
     // we are now in "stencil enabled land"
 
     // enabling if necessary
-    if ctxt.state.enabled_stencil_test != true {
+    if ctxt.state.out_of_sync || ctxt.state.enabled_stencil_test != true {
         unsafe { ctxt.gl.Enable(gl::STENCIL_TEST) };
         ctxt.state.enabled_stencil_test = true;
     }
@@ -274,72 +274,102 @@ pub fn sync_stencil(ctxt: &mut context::CommandContext, params: &Stencil) {
     let ref_ccw = params.reference_value_counter_clockwise;
 
     if (test_cw, ref_cw, read_mask_cw) == (test_ccw, ref_ccw, read_mask_ccw) {
-        if ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw) ||
-           ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw)
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw)
+                || ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw))
         {
             unsafe { ctxt.gl.StencilFunc(test_cw, ref_cw, read_mask_cw) };
             ctxt.state.stencil_func_back = (test_cw, ref_cw, read_mask_cw);
             ctxt.state.stencil_func_front = (test_ccw, ref_ccw, read_mask_ccw);
         }
-
     } else {
-        if ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw) {
-            unsafe { ctxt.gl.StencilFuncSeparate(gl::BACK, test_cw, ref_cw, read_mask_cw) };
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw))
+        {
+            unsafe {
+                ctxt.gl
+                    .StencilFuncSeparate(gl::BACK, test_cw, ref_cw, read_mask_cw)
+            };
             ctxt.state.stencil_func_back = (test_cw, ref_cw, read_mask_cw);
         }
 
-        if ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw) {
-            unsafe { ctxt.gl.StencilFuncSeparate(gl::FRONT, test_ccw, ref_ccw, read_mask_ccw) };
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw))
+        {
+            unsafe {
+                ctxt.gl
+                    .StencilFuncSeparate(gl::FRONT, test_ccw, ref_ccw, read_mask_ccw)
+            };
             ctxt.state.stencil_func_front = (test_ccw, ref_ccw, read_mask_ccw);
         }
     }
 
     // synchronizing the write mask
     if params.write_mask_clockwise == params.write_mask_counter_clockwise {
-        if ctxt.state.stencil_mask_back != params.write_mask_clockwise ||
-           ctxt.state.stencil_mask_front != params.write_mask_clockwise
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_mask_back != params.write_mask_clockwise
+                || ctxt.state.stencil_mask_front != params.write_mask_clockwise)
         {
             unsafe { ctxt.gl.StencilMask(params.write_mask_clockwise) };
             ctxt.state.stencil_mask_back = params.write_mask_clockwise;
             ctxt.state.stencil_mask_front = params.write_mask_clockwise;
         }
-
     } else {
-        if ctxt.state.stencil_mask_back != params.write_mask_clockwise {
-            unsafe { ctxt.gl.StencilMaskSeparate(gl::BACK, params.write_mask_clockwise) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_mask_back != params.write_mask_clockwise) {
+            unsafe {
+                ctxt.gl
+                    .StencilMaskSeparate(gl::BACK, params.write_mask_clockwise)
+            };
             ctxt.state.stencil_mask_back = params.write_mask_clockwise;
         }
 
-        if ctxt.state.stencil_mask_front != params.write_mask_clockwise {
-            unsafe { ctxt.gl.StencilMaskSeparate(gl::FRONT, params.write_mask_clockwise) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_mask_front != params.write_mask_clockwise)
+        {
+            unsafe {
+                ctxt.gl
+                    .StencilMaskSeparate(gl::FRONT, params.write_mask_clockwise)
+            };
             ctxt.state.stencil_mask_front = params.write_mask_clockwise;
         }
     }
 
     // synchronizing the operation
-    let op_back = (params.fail_operation_clockwise.to_glenum(),
-                   params.pass_depth_fail_operation_clockwise.to_glenum(),
-                   params.depth_pass_operation_clockwise.to_glenum());
+    let op_back = (
+        params.fail_operation_clockwise.to_glenum(),
+        params.pass_depth_fail_operation_clockwise.to_glenum(),
+        params.depth_pass_operation_clockwise.to_glenum(),
+    );
 
-    let op_front = (params.fail_operation_counter_clockwise.to_glenum(),
-                    params.pass_depth_fail_operation_counter_clockwise.to_glenum(),
-                    params.depth_pass_operation_counter_clockwise.to_glenum());
+    let op_front = (
+        params.fail_operation_counter_clockwise.to_glenum(),
+        params
+            .pass_depth_fail_operation_counter_clockwise
+            .to_glenum(),
+        params.depth_pass_operation_counter_clockwise.to_glenum(),
+    );
 
     if op_back == op_front {
-        if ctxt.state.stencil_op_back != op_back || ctxt.state.stencil_op_front != op_front {
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_op_back != op_back || ctxt.state.stencil_op_front != op_front)
+        {
             unsafe { ctxt.gl.StencilOp(op_back.0, op_back.1, op_back.2) };
             ctxt.state.stencil_op_back = op_back;
             ctxt.state.stencil_op_front = op_front;
         }
-
     } else {
-        if ctxt.state.stencil_op_back != op_back {
-            unsafe { ctxt.gl.StencilOpSeparate(gl::BACK, op_back.0, op_back.1, op_back.2) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_op_back != op_back) {
+            unsafe {
+                ctxt.gl
+                    .StencilOpSeparate(gl::BACK, op_back.0, op_back.1, op_back.2)
+            };
             ctxt.state.stencil_op_back = op_back;
         }
 
-        if ctxt.state.stencil_op_front != op_front {
-            unsafe { ctxt.gl.StencilOpSeparate(gl::FRONT, op_front.0, op_front.1, op_front.2) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_op_front != op_front) {
+            unsafe {
+                ctxt.gl
+                    .StencilOpSeparate(gl::FRONT, op_front.0, op_front.1, op_front.2)
+            };
             ctxt.state.stencil_op_front = op_front;
         }
     }

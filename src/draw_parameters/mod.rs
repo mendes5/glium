@@ -480,6 +480,8 @@ pub fn validate(context: &Context, params: &DrawParameters) -> Result<(), DrawEr
     Ok(())
 }
 
+// SETUP_PIPELINE_STATE
+
 #[doc(hidden)]
 pub fn sync(ctxt: &mut context::CommandContext, draw_parameters: &DrawParameters,
             dimensions: (u32, u32), primitives_types: PrimitiveType) -> Result<(), DrawError>
@@ -518,7 +520,7 @@ fn sync_color_mask(ctxt: &mut context::CommandContext, mask: (bool, bool, bool, 
         if mask.3 { 1 } else { 0 },
     );
 
-    if ctxt.state.color_mask != mask {
+    if ctxt.state.out_of_sync || ctxt.state.color_mask != mask {
         unsafe {
             ctxt.gl.ColorMask(mask.0, mask.1, mask.2, mask.3);
         }
@@ -529,7 +531,7 @@ fn sync_color_mask(ctxt: &mut context::CommandContext, mask: (bool, bool, bool, 
 
 fn sync_line_width(ctxt: &mut context::CommandContext, line_width: Option<f32>) {
     if let Some(line_width) = line_width {
-        if ctxt.state.line_width != line_width {
+        if ctxt.state.out_of_sync || ctxt.state.line_width != line_width {
             unsafe {
                 ctxt.gl.LineWidth(line_width);
                 ctxt.state.line_width = line_width;
@@ -540,7 +542,7 @@ fn sync_line_width(ctxt: &mut context::CommandContext, line_width: Option<f32>) 
 
 fn sync_point_size(ctxt: &mut context::CommandContext, point_size: Option<f32>) {
     if let Some(point_size) = point_size {
-        if ctxt.state.point_size != point_size {
+        if ctxt.state.out_of_sync || ctxt.state.point_size != point_size {
             unsafe {
                 ctxt.gl.PointSize(point_size);
                 ctxt.state.point_size = point_size;
@@ -557,27 +559,27 @@ fn sync_polygon_mode(ctxt: &mut context::CommandContext, backface_culling: Backf
     //  that's why `CullClockwise` uses `GL_BACK` for example
     match backface_culling {
         BackfaceCullingMode::CullingDisabled => unsafe {
-            if ctxt.state.enabled_cull_face {
+            if ctxt.state.out_of_sync || ctxt.state.enabled_cull_face {
                 ctxt.gl.Disable(gl::CULL_FACE);
                 ctxt.state.enabled_cull_face = false;
             }
         },
         BackfaceCullingMode::CullCounterClockwise => unsafe {
-            if !ctxt.state.enabled_cull_face {
+            if ctxt.state.out_of_sync || !ctxt.state.enabled_cull_face {
                 ctxt.gl.Enable(gl::CULL_FACE);
                 ctxt.state.enabled_cull_face = true;
             }
-            if ctxt.state.cull_face != gl::FRONT {
+            if ctxt.state.out_of_sync || ctxt.state.cull_face != gl::FRONT {
                 ctxt.gl.CullFace(gl::FRONT);
                 ctxt.state.cull_face = gl::FRONT;
             }
         },
         BackfaceCullingMode::CullClockwise => unsafe {
-            if !ctxt.state.enabled_cull_face {
+            if ctxt.state.out_of_sync || !ctxt.state.enabled_cull_face {
                 ctxt.gl.Enable(gl::CULL_FACE);
                 ctxt.state.enabled_cull_face = true;
             }
-            if ctxt.state.cull_face != gl::BACK {
+            if ctxt.state.out_of_sync || ctxt.state.cull_face != gl::BACK {
                 ctxt.gl.CullFace(gl::BACK);
                 ctxt.state.cull_face = gl::BACK;
             }
@@ -587,7 +589,7 @@ fn sync_polygon_mode(ctxt: &mut context::CommandContext, backface_culling: Backf
     // polygon mode
     unsafe {
         let polygon_mode = polygon_mode.to_glenum();
-        if ctxt.state.polygon_mode != polygon_mode {
+        if ctxt.state.out_of_sync || ctxt.state.polygon_mode != polygon_mode {
             ctxt.gl.PolygonMode(gl::FRONT_AND_BACK, polygon_mode);
             ctxt.state.polygon_mode = polygon_mode;
         }
@@ -600,7 +602,7 @@ fn sync_clip_planes_bitmask(ctxt: &mut context::CommandContext, clip_planes_bitm
         let mut max_clip_planes: gl::types::GLint = 0;
         ctxt.gl.GetIntegerv(gl::MAX_CLIP_DISTANCES, &mut max_clip_planes);
         for i in 0..32 {
-            if clip_planes_bitmask & (1 << i) != ctxt.state.enabled_clip_planes & (1 << i) {
+            if ctxt.state.out_of_sync || (clip_planes_bitmask & (1 << i) != ctxt.state.enabled_clip_planes & (1 << i)) {
                 if clip_planes_bitmask & (1 << i) != 0 {
                     if i < max_clip_planes {
                         ctxt.gl.Enable(gl::CLIP_DISTANCE0 + i as u32);
@@ -621,7 +623,7 @@ fn sync_clip_planes_bitmask(ctxt: &mut context::CommandContext, clip_planes_bitm
 }
 
 fn sync_multisampling(ctxt: &mut context::CommandContext, multisampling: bool) {
-    if ctxt.state.enabled_multisample != multisampling {
+    if ctxt.state.out_of_sync || ctxt.state.enabled_multisample != multisampling {
         unsafe {
             if multisampling {
                 ctxt.gl.Enable(gl::MULTISAMPLE);
@@ -635,7 +637,7 @@ fn sync_multisampling(ctxt: &mut context::CommandContext, multisampling: bool) {
 }
 
 fn sync_dithering(ctxt: &mut context::CommandContext, dithering: bool) {
-    if ctxt.state.enabled_dither != dithering {
+    if ctxt.state.out_of_sync || ctxt.state.enabled_dither != dithering {
         unsafe {
             if dithering {
                 ctxt.gl.Enable(gl::DITHER);
@@ -662,7 +664,7 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext, viewport: Option<Re
                         viewport.width as gl::types::GLsizei,
                         viewport.height as gl::types::GLsizei);
 
-        if ctxt.state.viewport != Some(viewport) {
+        if ctxt.state.out_of_sync || ctxt.state.viewport != Some(viewport) {
             unsafe { ctxt.gl.Viewport(viewport.0, viewport.1, viewport.2, viewport.3); }
             ctxt.state.viewport = Some(viewport);
         }
@@ -676,7 +678,7 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext, viewport: Option<Re
         let viewport = (0, 0, surface_dimensions.0 as gl::types::GLsizei,
                         surface_dimensions.1 as gl::types::GLsizei);
 
-        if ctxt.state.viewport != Some(viewport) {
+        if ctxt.state.out_of_sync || ctxt.state.viewport != Some(viewport) {
             unsafe { ctxt.gl.Viewport(viewport.0, viewport.1, viewport.2, viewport.3); }
             ctxt.state.viewport = Some(viewport);
         }
@@ -689,19 +691,19 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext, viewport: Option<Re
                        scissor.height as gl::types::GLsizei);
 
         unsafe {
-            if ctxt.state.scissor != Some(scissor) {
+            if ctxt.state.out_of_sync || ctxt.state.scissor != Some(scissor) {
                 ctxt.gl.Scissor(scissor.0, scissor.1, scissor.2, scissor.3);
                 ctxt.state.scissor = Some(scissor);
             }
 
-            if !ctxt.state.enabled_scissor_test {
+            if ctxt.state.out_of_sync || !ctxt.state.enabled_scissor_test {
                 ctxt.gl.Enable(gl::SCISSOR_TEST);
                 ctxt.state.enabled_scissor_test = true;
             }
         }
     } else {
         unsafe {
-            if ctxt.state.enabled_scissor_test {
+            if ctxt.state.out_of_sync || ctxt.state.enabled_scissor_test {
                 ctxt.gl.Disable(gl::SCISSOR_TEST);
                 ctxt.state.enabled_scissor_test = false;
             }
@@ -712,7 +714,7 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext, viewport: Option<Re
 fn sync_rasterizer_discard(ctxt: &mut context::CommandContext, draw_primitives: bool)
                            -> Result<(), DrawError>
 {
-    if ctxt.state.enabled_rasterizer_discard == draw_primitives {
+    if ctxt.state.out_of_sync || ctxt.state.enabled_rasterizer_discard == draw_primitives {
         if ctxt.version >= &Version(Api::Gl, 3, 0) {
             if draw_primitives {
                 unsafe { ctxt.gl.Disable(gl::RASTERIZER_DISCARD); }
@@ -815,12 +817,12 @@ fn sync_smooth(ctxt: &mut context::CommandContext,
             PrimitiveType::LinesList | PrimitiveType::LinesListAdjacency |
             PrimitiveType::LineStrip | PrimitiveType::LineStripAdjacency |
             PrimitiveType::LineLoop => unsafe {
-                if !ctxt.state.enabled_line_smooth {
+                if ctxt.state.out_of_sync || !ctxt.state.enabled_line_smooth {
                     ctxt.state.enabled_line_smooth = true;
                     ctxt.gl.Enable(gl::LINE_SMOOTH);
                 }
 
-                if ctxt.state.smooth.0 != hint {
+                if ctxt.state.out_of_sync || ctxt.state.smooth.0 != hint {
                     ctxt.state.smooth.0 = hint;
                     ctxt.gl.Hint(gl::LINE_SMOOTH_HINT, hint);
                 }
@@ -828,12 +830,12 @@ fn sync_smooth(ctxt: &mut context::CommandContext,
 
             // polygon
             _ => unsafe {
-                if !ctxt.state.enabled_polygon_smooth {
+                if ctxt.state.out_of_sync || !ctxt.state.enabled_polygon_smooth {
                     ctxt.state.enabled_polygon_smooth = true;
                     ctxt.gl.Enable(gl::POLYGON_SMOOTH);
                 }
 
-                if ctxt.state.smooth.1 != hint {
+                if ctxt.state.out_of_sync || ctxt.state.smooth.1 != hint {
                     ctxt.state.smooth.1 = hint;
                     ctxt.gl.Hint(gl::POLYGON_SMOOTH_HINT, hint);
                 }
@@ -849,7 +851,7 @@ fn sync_smooth(ctxt: &mut context::CommandContext,
             PrimitiveType::LinesList | PrimitiveType::LinesListAdjacency |
             PrimitiveType::LineStrip | PrimitiveType::LineStripAdjacency |
             PrimitiveType::LineLoop => unsafe {
-                if ctxt.state.enabled_line_smooth {
+                if ctxt.state.out_of_sync || ctxt.state.enabled_line_smooth {
                     ctxt.state.enabled_line_smooth = false;
                     ctxt.gl.Disable(gl::LINE_SMOOTH);
                 }
@@ -857,7 +859,7 @@ fn sync_smooth(ctxt: &mut context::CommandContext,
 
             // polygon
             _ => unsafe {
-                if ctxt.state.enabled_polygon_smooth {
+                if ctxt.state.out_of_sync || ctxt.state.enabled_polygon_smooth {
                     ctxt.state.enabled_polygon_smooth = false;
                     ctxt.gl.Disable(gl::POLYGON_SMOOTH);
                 }
@@ -876,7 +878,7 @@ fn sync_provoking_vertex(ctxt: &mut context::CommandContext, value: ProvokingVer
         ProvokingVertex::FirstVertex => gl::FIRST_VERTEX_CONVENTION,
     };
 
-    if ctxt.state.provoking_vertex == value {
+    if !ctxt.state.out_of_sync && ctxt.state.provoking_vertex == value {
         return Ok(());
     }
 
@@ -901,7 +903,7 @@ fn sync_primitive_bounding_box(ctxt: &mut context::CommandContext,
     let value = (bb.0.start, bb.1.start, bb.2.start, bb.3.start,
                  bb.0.end, bb.1.end, bb.2.end, bb.3.end);
 
-    if ctxt.state.primitive_bounding_box == value {
+    if !ctxt.state.out_of_sync && ctxt.state.primitive_bounding_box == value {
         return;
     }
 
@@ -936,7 +938,7 @@ fn sync_primitive_restart_index(ctxt: &mut context::CommandContext,
     if ctxt.version >= &Version(Api::Gl, 3, 1)   || ctxt.version >= &Version(Api::GlEs, 3, 0) ||
     ctxt.extensions.gl_arb_es3_compatibility
     {
-        if ctxt.state.enabled_primitive_fixed_restart != enabled {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_primitive_fixed_restart != enabled {
             if enabled {
                 unsafe { ctxt.gl.Enable(gl::PRIMITIVE_RESTART_FIXED_INDEX); }
                 ctxt.state.enabled_primitive_fixed_restart = true;

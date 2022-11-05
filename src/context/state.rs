@@ -6,6 +6,8 @@ use smallvec::SmallVec;
 ///
 /// The current state is passed to each function and can be freely updated.
 pub struct GlState {
+    pub out_of_sync: bool,
+
     /// Whether we have detected that the context has been lost.
     ///
     /// Even when this is `false`, the context may have been lost since the last query. So we have
@@ -367,7 +369,7 @@ impl Default for GlState {
 
         GlState {
             lost_context: false,
-
+            out_of_sync: false,
             enabled_blend: false,
             enabled_cull_face: false,
             enabled_debug_output: None,

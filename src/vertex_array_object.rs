@@ -481,7 +481,7 @@ fn vertex_binding_type_to_gl(ty: AttributeType) -> (gl::types::GLenum, gl::types
 ///
 /// Panics if the backend doesn't support vertex array objects.
 fn bind_vao(ctxt: &mut CommandContext, vao_id: gl::types::GLuint) {
-    if ctxt.state.vertex_array != vao_id {
+    if ctxt.state.out_of_sync || ctxt.state.vertex_array != vao_id {
         if ctxt.version >= &Version(Api::Gl, 3, 0) ||
             ctxt.version >= &Version(Api::GlEs, 3, 0) ||
             ctxt.extensions.gl_arb_vertex_array_object
@@ -506,7 +506,7 @@ unsafe fn bind_attribute(ctxt: &mut CommandContext, program: &Program,
 {
     // glVertexAttribPointer uses the current array buffer
     // TODO: use a proper function
-    if ctxt.state.array_buffer_binding != vertex_buffer {
+    if ctxt.state.out_of_sync || ctxt.state.array_buffer_binding != vertex_buffer {
         if ctxt.version >= &Version(Api::Gl, 1, 5) ||
             ctxt.version >= &Version(Api::GlEs, 2, 0)
         {

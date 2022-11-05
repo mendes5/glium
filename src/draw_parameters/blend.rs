@@ -256,20 +256,20 @@ pub fn sync_blending(ctxt: &mut CommandContext, blend: Blend) -> Result<(), Draw
            (blend.color, blend.alpha)
     {
         // Both color and alpha always replace. This equals no blending.
-        if ctxt.state.enabled_blend {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_blend {
             unsafe { ctxt.gl.Disable(gl::BLEND); }
             ctxt.state.enabled_blend = false;
         }
 
     } else {
-        if !ctxt.state.enabled_blend {
+        if ctxt.state.out_of_sync || !ctxt.state.enabled_blend {
             unsafe { ctxt.gl.Enable(gl::BLEND); }
             ctxt.state.enabled_blend = true;
         }
 
         let (color_eq, alpha_eq) = (blend_eq(ctxt, blend.color)?,
                                     blend_eq(ctxt, blend.alpha)?);
-        if ctxt.state.blend_equation != (color_eq, alpha_eq) {
+        if ctxt.state.out_of_sync || ctxt.state.blend_equation != (color_eq, alpha_eq) {
             unsafe { ctxt.gl.BlendEquationSeparate(color_eq, alpha_eq); }
             ctxt.state.blend_equation = (color_eq, alpha_eq);
         }
@@ -298,7 +298,7 @@ pub fn sync_blending(ctxt: &mut CommandContext, blend: Blend) -> Result<(), Draw
            alpha_factor_dst == LinearBlendingFactor::ConstantAlpha ||
            alpha_factor_dst == LinearBlendingFactor::OneMinusConstantAlpha
         {
-            if ctxt.state.blend_color != blend.constant_value {
+            if ctxt.state.out_of_sync || ctxt.state.blend_color != blend.constant_value {
                 let (r, g, b, a) = blend.constant_value;
                 unsafe { ctxt.gl.BlendColor(r, g, b, a); }
                 ctxt.state.blend_color = blend.constant_value;
@@ -310,7 +310,7 @@ pub fn sync_blending(ctxt: &mut CommandContext, blend: Blend) -> Result<(), Draw
         let color_factor_dst = color_factor_dst.to_glenum();
         let alpha_factor_src = alpha_factor_src.to_glenum();
         let alpha_factor_dst = alpha_factor_dst.to_glenum();
-        if ctxt.state.blend_func != (color_factor_src, color_factor_dst,
+        if ctxt.state.out_of_sync || ctxt.state.blend_func != (color_factor_src, color_factor_dst,
                                      alpha_factor_src, alpha_factor_dst)
         {
             unsafe {

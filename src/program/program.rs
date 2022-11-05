@@ -354,16 +354,16 @@ impl GlObject for Program {
 impl ProgramExt for Program {
     fn use_program(&self, ctxt: &mut CommandContext) {
         // compatibility was checked at program creation
-        if self.uses_point_size && !ctxt.state.enabled_program_point_size {
+        if self.uses_point_size && (ctxt.state.out_of_sync || !ctxt.state.enabled_program_point_size) {
             unsafe { ctxt.gl.Enable(gl::PROGRAM_POINT_SIZE); }
-        } else if !self.uses_point_size && ctxt.state.enabled_program_point_size {
+        } else if !self.uses_point_size && (ctxt.state.out_of_sync || ctxt.state.enabled_program_point_size) {
             unsafe { ctxt.gl.Disable(gl::PROGRAM_POINT_SIZE); }
         }
 
         if ctxt.version >= &Version(Api::Gl, 3, 0) || ctxt.extensions.gl_arb_framebuffer_srgb ||
            ctxt.extensions.gl_ext_framebuffer_srgb || ctxt.extensions.gl_ext_srgb_write_control
         {
-            if ctxt.state.enabled_framebuffer_srgb == self.outputs_srgb {
+            if ctxt.state.out_of_sync || ctxt.state.enabled_framebuffer_srgb == self.outputs_srgb {
                 ctxt.state.enabled_framebuffer_srgb = !self.outputs_srgb;
 
                 if self.outputs_srgb {

@@ -1377,7 +1377,7 @@ unsafe fn bind_buffer(ctxt: &mut CommandContext, id: gl::types::GLuint, ty: Buff
             if $input_ty == BufferType::$check {
                 let en = $input_ty.to_glenum();
 
-                if ctxt.state.$state_var != $input_id {
+                if ctxt.state.out_of_sync || ctxt.state.$state_var != $input_id {
                     ctxt.state.$state_var = $input_id;
 
                     if ctxt.version >= &Version(Api::Gl, 1, 5) ||
@@ -1431,7 +1431,7 @@ unsafe fn bind_buffer(ctxt: &mut CommandContext, id: gl::types::GLuint, ty: Buff
 
         // FIXME: pause transform feedback if it is active
 
-        if ctxt.state.indexed_transform_feedback_buffer_bindings[0].buffer != id {
+        if ctxt.state.out_of_sync || ctxt.state.indexed_transform_feedback_buffer_bindings[0].buffer != id {
             ctxt.state.indexed_transform_feedback_buffer_bindings[0].buffer = id;
 
             if ctxt.version >= &Version(Api::Gl, 1, 5) ||
@@ -1483,8 +1483,9 @@ unsafe fn indexed_bind_buffer(ctxt: &mut CommandContext, id: gl::types::GLuint, 
                     }
                 }
 
+                let out = ctxt.state.out_of_sync;
                 let unit = &mut ctxt.state.$state_var[$input_index as usize];
-                if unit.buffer != $input_id || unit.offset != offset || unit.size != size {
+                if out || unit.buffer != $input_id || unit.offset != offset || unit.size != size {
                     unit.buffer = $input_id;
                     unit.offset = offset;
                     unit.size = size;

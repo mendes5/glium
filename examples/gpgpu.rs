@@ -18,14 +18,14 @@ fn main() {
     };
     let display = glium::backend::glutin::headless::Headless::new(context).unwrap();
 
-    let program = glium::program::ComputeShader::from_source(&display, r#"\
+    let program = glium::program::ComputeShader::from_source(&display, r#"
 
             #version 430
             layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
             layout(std140) buffer MyBlock {
                 float power;
-                vec4 values[4096/4];
+                vec4 values[4096];
             };
 
             void main() {

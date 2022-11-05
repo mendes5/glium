@@ -1125,8 +1125,11 @@ impl Frame {
     /// See the documentation of `SwapBuffersError` about what is being returned.
     #[inline]
     pub fn finish(mut self) -> Result<(), SwapBuffersError> {
+        self.context.make_current().state.out_of_sync = false;
         self.set_finish()
     }
+
+
 
     /// Stop drawing, swap the buffers.
     ///
@@ -1140,6 +1143,13 @@ impl Frame {
 
         self.destroyed = true;
         self.context.swap_buffers()
+    }
+
+    /// Marks the internal GLium context as out of sync
+    /// Usefull when other libaries might have messed up the GL context
+    #[inline]
+    pub fn unsync(&mut self) {
+        self.context.make_current().state.out_of_sync = true;
     }
 }
 
