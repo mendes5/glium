@@ -231,7 +231,7 @@ pub fn sync_stencil(ctxt: &mut context::CommandContext<'_>, params: &Stencil) {
        params.pass_depth_fail_operation_counter_clockwise == StencilOperation::Keep &&
        params.depth_pass_operation_counter_clockwise == StencilOperation::Keep
     {
-        if ctxt.state.enabled_stencil_test {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_stencil_test {
             unsafe { ctxt.gl.Disable(gl::STENCIL_TEST) };
             ctxt.state.enabled_stencil_test = false;
         }
@@ -242,7 +242,7 @@ pub fn sync_stencil(ctxt: &mut context::CommandContext<'_>, params: &Stencil) {
     // we are now in "stencil enabled land"
 
     // enabling if necessary
-    if !ctxt.state.enabled_stencil_test {
+    if ctxt.state.out_of_sync || !ctxt.state.enabled_stencil_test {
         unsafe { ctxt.gl.Enable(gl::STENCIL_TEST) };
         ctxt.state.enabled_stencil_test = true;
     }
@@ -274,44 +274,61 @@ pub fn sync_stencil(ctxt: &mut context::CommandContext<'_>, params: &Stencil) {
     let ref_ccw = params.reference_value_counter_clockwise;
 
     if (test_cw, ref_cw, read_mask_cw) == (test_ccw, ref_ccw, read_mask_ccw) {
-        if ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw) ||
-           ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw)
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw)
+                || ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw))
         {
             unsafe { ctxt.gl.StencilFunc(test_cw, ref_cw, read_mask_cw) };
             ctxt.state.stencil_func_back = (test_cw, ref_cw, read_mask_cw);
             ctxt.state.stencil_func_front = (test_ccw, ref_ccw, read_mask_ccw);
         }
-
     } else {
-        if ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw) {
-            unsafe { ctxt.gl.StencilFuncSeparate(gl::BACK, test_cw, ref_cw, read_mask_cw) };
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_func_back != (test_cw, ref_cw, read_mask_cw))
+        {
+            unsafe {
+                ctxt.gl
+                    .StencilFuncSeparate(gl::BACK, test_cw, ref_cw, read_mask_cw)
+            };
             ctxt.state.stencil_func_back = (test_cw, ref_cw, read_mask_cw);
         }
 
-        if ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw) {
-            unsafe { ctxt.gl.StencilFuncSeparate(gl::FRONT, test_ccw, ref_ccw, read_mask_ccw) };
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_func_front != (test_ccw, ref_ccw, read_mask_ccw))
+        {
+            unsafe {
+                ctxt.gl
+                    .StencilFuncSeparate(gl::FRONT, test_ccw, ref_ccw, read_mask_ccw)
+            };
             ctxt.state.stencil_func_front = (test_ccw, ref_ccw, read_mask_ccw);
         }
     }
 
     // synchronizing the write mask
     if params.write_mask_clockwise == params.write_mask_counter_clockwise {
-        if ctxt.state.stencil_mask_back != params.write_mask_clockwise ||
-           ctxt.state.stencil_mask_front != params.write_mask_clockwise
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_mask_back != params.write_mask_clockwise
+                || ctxt.state.stencil_mask_front != params.write_mask_clockwise)
         {
             unsafe { ctxt.gl.StencilMask(params.write_mask_clockwise) };
             ctxt.state.stencil_mask_back = params.write_mask_clockwise;
             ctxt.state.stencil_mask_front = params.write_mask_clockwise;
         }
-
     } else {
-        if ctxt.state.stencil_mask_back != params.write_mask_clockwise {
-            unsafe { ctxt.gl.StencilMaskSeparate(gl::BACK, params.write_mask_clockwise) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_mask_back != params.write_mask_clockwise) {
+            unsafe {
+                ctxt.gl
+                    .StencilMaskSeparate(gl::BACK, params.write_mask_clockwise)
+            };
             ctxt.state.stencil_mask_back = params.write_mask_clockwise;
         }
 
-        if ctxt.state.stencil_mask_front != params.write_mask_clockwise {
-            unsafe { ctxt.gl.StencilMaskSeparate(gl::FRONT, params.write_mask_clockwise) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_mask_front != params.write_mask_clockwise)
+        {
+            unsafe {
+                ctxt.gl
+                    .StencilMaskSeparate(gl::FRONT, params.write_mask_clockwise)
+            };
             ctxt.state.stencil_mask_front = params.write_mask_clockwise;
         }
     }
@@ -326,20 +343,27 @@ pub fn sync_stencil(ctxt: &mut context::CommandContext<'_>, params: &Stencil) {
                     params.depth_pass_operation_counter_clockwise.to_glenum());
 
     if op_back == op_front {
-        if ctxt.state.stencil_op_back != op_back || ctxt.state.stencil_op_front != op_front {
+        if ctxt.state.out_of_sync
+            || (ctxt.state.stencil_op_back != op_back || ctxt.state.stencil_op_front != op_front)
+        {
             unsafe { ctxt.gl.StencilOp(op_back.0, op_back.1, op_back.2) };
             ctxt.state.stencil_op_back = op_back;
             ctxt.state.stencil_op_front = op_front;
         }
-
     } else {
-        if ctxt.state.stencil_op_back != op_back {
-            unsafe { ctxt.gl.StencilOpSeparate(gl::BACK, op_back.0, op_back.1, op_back.2) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_op_back != op_back) {
+            unsafe {
+                ctxt.gl
+                    .StencilOpSeparate(gl::BACK, op_back.0, op_back.1, op_back.2)
+            };
             ctxt.state.stencil_op_back = op_back;
         }
 
-        if ctxt.state.stencil_op_front != op_front {
-            unsafe { ctxt.gl.StencilOpSeparate(gl::FRONT, op_front.0, op_front.1, op_front.2) };
+        if ctxt.state.out_of_sync || (ctxt.state.stencil_op_front != op_front) {
+            unsafe {
+                ctxt.gl
+                    .StencilOpSeparate(gl::FRONT, op_front.0, op_front.1, op_front.2)
+            };
             ctxt.state.stencil_op_front = op_front;
         }
     }

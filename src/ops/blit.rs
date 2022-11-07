@@ -27,7 +27,7 @@ pub fn blit(context: &Context, source: Option<&ValidatedAttachments<'_>>,
         let target = FramebuffersContainer::get_framebuffer_for_drawing(&mut ctxt, target);
 
         // scissor testing influences blitting
-        if ctxt.state.enabled_scissor_test {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_scissor_test {
             ctxt.gl.Disable(gl::SCISSOR_TEST);
             ctxt.state.enabled_scissor_test = false;
         }
@@ -47,7 +47,7 @@ pub fn blit(context: &Context, source: Option<&ValidatedAttachments<'_>>,
         }
 
         // binding source framebuffer
-        if ctxt.state.read_framebuffer != source {
+        if ctxt.state.out_of_sync || ctxt.state.read_framebuffer != source {
             if ctxt.version >= &Version(Api::Gl, 3, 0) {
                 ctxt.gl.BindFramebuffer(gl::READ_FRAMEBUFFER, source);
                 ctxt.state.read_framebuffer = source;
@@ -59,7 +59,7 @@ pub fn blit(context: &Context, source: Option<&ValidatedAttachments<'_>>,
         }
 
         // binding target framebuffer
-        if ctxt.state.draw_framebuffer != target {
+        if ctxt.state.out_of_sync || ctxt.state.draw_framebuffer != target {
             if ctxt.version >= &Version(Api::Gl, 3, 0) {
                 ctxt.gl.BindFramebuffer(gl::DRAW_FRAMEBUFFER, target);
                 ctxt.state.draw_framebuffer = target;

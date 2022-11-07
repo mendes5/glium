@@ -338,7 +338,7 @@ pub fn draw<'a, U, V>(context: &Context, framebuffer: Option<&ValidatedAttachmen
 unsafe fn sync_vertices_per_patch(ctxt: &mut context::CommandContext<'_>, vertices_per_patch: Option<u16>) {
     if let Some(vertices_per_patch) = vertices_per_patch {
         let vertices_per_patch = vertices_per_patch as gl::types::GLint;
-        if ctxt.state.patch_patch_vertices != vertices_per_patch {
+        if ctxt.state.out_of_sync || ctxt.state.patch_patch_vertices != vertices_per_patch {
             ctxt.gl.PatchParameteri(gl::PATCH_VERTICES, vertices_per_patch);
             ctxt.state.patch_patch_vertices = vertices_per_patch;
         }

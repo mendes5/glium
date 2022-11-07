@@ -22,12 +22,12 @@ pub fn clear(context: &Context, framebuffer: Option<&ValidatedAttachments<'_>>,
         let fbo_id = fbo::FramebuffersContainer::get_framebuffer_for_drawing(&mut ctxt, framebuffer);
         fbo::bind_framebuffer(&mut ctxt, fbo_id, true, false);
 
-        if ctxt.state.enabled_rasterizer_discard {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_rasterizer_discard {
             ctxt.gl.Disable(gl::RASTERIZER_DISCARD);
             ctxt.state.enabled_rasterizer_discard = false;
         }
 
-        if ctxt.state.color_mask != (1, 1, 1, 1) {
+        if ctxt.state.out_of_sync || ctxt.state.color_mask != (1, 1, 1, 1) {
             ctxt.state.color_mask = (1, 1, 1, 1);
             ctxt.gl.ColorMask(1, 1, 1, 1);
         }
@@ -35,11 +35,11 @@ pub fn clear(context: &Context, framebuffer: Option<&ValidatedAttachments<'_>>,
         if ctxt.version >= &Version(Api::Gl, 3, 0) || ctxt.extensions.gl_arb_framebuffer_srgb ||
            ctxt.extensions.gl_ext_framebuffer_srgb || ctxt.extensions.gl_ext_srgb_write_control
         {
-            if color_srgb && !ctxt.state.enabled_framebuffer_srgb {
+            if !color_srgb && (!ctxt.state.enabled_framebuffer_srgb || ctxt.state.out_of_sync) {
                 ctxt.gl.Enable(gl::FRAMEBUFFER_SRGB);
                 ctxt.state.enabled_framebuffer_srgb = true;
 
-            } else if !color_srgb && ctxt.state.enabled_framebuffer_srgb {
+            } else if color_srgb && (ctxt.state.enabled_framebuffer_srgb || ctxt.state.out_of_sync) {
                 ctxt.gl.Disable(gl::FRAMEBUFFER_SRGB);
                 ctxt.state.enabled_framebuffer_srgb = false;
             }
@@ -51,19 +51,21 @@ pub fn clear(context: &Context, framebuffer: Option<&ValidatedAttachments<'_>>,
             let rect = (rect.left as gl::types::GLint, rect.bottom as gl::types::GLint,
                         rect.width as gl::types::GLsizei, rect.height as gl::types::GLsizei);
 
-            if ctxt.state.scissor != Some(rect) {
+            if ctxt.state.out_of_sync || ctxt.state.scissor != Some(rect) {
                 ctxt.gl.Scissor(rect.0, rect.1, rect.2, rect.3);
                 ctxt.state.scissor = Some(rect);
             }
 
-            if !ctxt.state.enabled_scissor_test {
+            if ctxt.state.out_of_sync ||!ctxt.state.enabled_scissor_test {
                 ctxt.gl.Enable(gl::SCISSOR_TEST);
                 ctxt.state.enabled_scissor_test = true;
             }
 
-        } else if ctxt.state.enabled_scissor_test {
-            ctxt.gl.Disable(gl::SCISSOR_TEST);
-            ctxt.state.enabled_scissor_test = false;
+        } else {
+            if ctxt.state.out_of_sync || ctxt.state.enabled_scissor_test {
+                ctxt.gl.Disable(gl::SCISSOR_TEST);
+                ctxt.state.enabled_scissor_test = false;
+            }
         }
 
         let mut flags = 0;
@@ -74,7 +76,7 @@ pub fn clear(context: &Context, framebuffer: Option<&ValidatedAttachments<'_>>,
 
             flags |= gl::COLOR_BUFFER_BIT;
 
-            if ctxt.state.clear_color != color {
+            if ctxt.state.out_of_sync || ctxt.state.clear_color != color {
                 ctxt.gl.ClearColor(color.0, color.1, color.2, color.3);
                 ctxt.state.clear_color = color;
             }
@@ -85,7 +87,7 @@ pub fn clear(context: &Context, framebuffer: Option<&ValidatedAttachments<'_>>,
 
             flags |= gl::DEPTH_BUFFER_BIT;
 
-            if ctxt.state.clear_depth != depth {
+            if ctxt.state.out_of_sync || ctxt.state.clear_depth != depth {
                 if ctxt.version >= &Version(Api::Gl, 1, 0) {
                     ctxt.gl.ClearDepth(depth as gl::types::GLclampd);
                 } else if ctxt.version >= &Version(Api::GlEs, 2, 0) {
@@ -97,7 +99,7 @@ pub fn clear(context: &Context, framebuffer: Option<&ValidatedAttachments<'_>>,
                 ctxt.state.clear_depth = depth;
             }
 
-            if !ctxt.state.depth_mask {
+            if ctxt.state.out_of_sync || !ctxt.state.depth_mask {
                 ctxt.gl.DepthMask(gl::TRUE);
                 ctxt.state.depth_mask = true;
             }
@@ -108,7 +110,7 @@ pub fn clear(context: &Context, framebuffer: Option<&ValidatedAttachments<'_>>,
 
             flags |= gl::STENCIL_BUFFER_BIT;
 
-            if ctxt.state.clear_stencil != stencil {
+            if ctxt.state.out_of_sync || ctxt.state.clear_stencil != stencil {
                 ctxt.gl.ClearStencil(stencil);
                 ctxt.state.clear_stencil = stencil;
             }

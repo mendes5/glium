@@ -123,12 +123,19 @@ pub fn read<'a, S, D, T>(mut ctxt: &mut CommandContext<'_>, source: S, rect: &Re
     // handling clamping
     if ctxt.version >= &Version(Api::Gl, 3, 0) {
         unsafe {
-            if clamp && ctxt.state.clamp_color != gl::TRUE as gl::types::GLenum {
-                ctxt.gl.ClampColor(gl::CLAMP_READ_COLOR, gl::TRUE as gl::types::GLenum);
+            if clamp
+                && (ctxt.state.out_of_sync
+                    || ctxt.state.clamp_color != gl::TRUE as gl::types::GLenum)
+            {
+                ctxt.gl
+                    .ClampColor(gl::CLAMP_READ_COLOR, gl::TRUE as gl::types::GLenum);
                 ctxt.state.clamp_color = gl::TRUE as gl::types::GLenum;
-
-            } else if !clamp && ctxt.state.clamp_color != gl::FALSE as gl::types::GLenum {
-                ctxt.gl.ClampColor(gl::CLAMP_READ_COLOR, gl::FALSE as gl::types::GLenum);
+            } else if !clamp
+                && (ctxt.state.out_of_sync
+                    || ctxt.state.clamp_color != gl::FALSE as gl::types::GLenum)
+            {
+                ctxt.gl
+                    .ClampColor(gl::CLAMP_READ_COLOR, gl::FALSE as gl::types::GLenum);
                 ctxt.state.clamp_color = gl::FALSE as gl::types::GLenum;
             }
         }
@@ -219,13 +226,17 @@ pub fn read<'a, S, D, T>(mut ctxt: &mut CommandContext<'_>, source: S, rect: &Re
                 let ptr = buf.as_mut_ptr() as *mut D;
                 let ptr = ptr as usize;
                 if (ptr % 8) == 0 {
-                } else if (ptr % 4) == 0 && ctxt.state.pixel_store_pack_alignment != 4 {
+                } else if (ptr % 4) == 0
+                    && (ctxt.state.out_of_sync || ctxt.state.pixel_store_pack_alignment != 4)
+                {
                     ctxt.state.pixel_store_pack_alignment = 4;
                     ctxt.gl.PixelStorei(gl::PACK_ALIGNMENT, 4);
-                } else if (ptr % 2) == 0 && ctxt.state.pixel_store_pack_alignment > 2 {
+                } else if (ptr % 2) == 0
+                    && (ctxt.state.out_of_sync || ctxt.state.pixel_store_pack_alignment > 2)
+                {
                     ctxt.state.pixel_store_pack_alignment = 2;
                     ctxt.gl.PixelStorei(gl::PACK_ALIGNMENT, 2);
-                } else if ctxt.state.pixel_store_pack_alignment != 1 {
+                } else if ctxt.state.out_of_sync || ctxt.state.pixel_store_pack_alignment != 1 {
                     ctxt.state.pixel_store_pack_alignment = 1;
                     ctxt.gl.PixelStorei(gl::PACK_ALIGNMENT, 1);
                 }

@@ -748,18 +748,18 @@ fn bind_texture_uniform<P, T>(ctxt: &mut context::CommandContext<'_>,
     }
 
     // TODO: do better
-    if ctxt.state.texture_units[texture_unit as usize].texture != texture.get_texture_id() ||
+    if ctxt.state.out_of_sync || ctxt.state.texture_units[texture_unit as usize].texture != texture.get_texture_id() ||
        ctxt.state.texture_units[texture_unit as usize].sampler != sampler
     {
         // TODO: what if it's not supported?
-        if ctxt.state.active_texture != texture_unit as gl::types::GLenum {
+        if ctxt.state.out_of_sync || ctxt.state.active_texture != texture_unit as gl::types::GLenum {
             unsafe { ctxt.gl.ActiveTexture(texture_unit as gl::types::GLenum + gl::TEXTURE0) };
             ctxt.state.active_texture = texture_unit as gl::types::GLenum;
         }
 
         texture.bind_to_current(ctxt);
 
-        if ctxt.state.texture_units[texture_unit as usize].sampler != sampler {
+        if ctxt.state.out_of_sync || ctxt.state.texture_units[texture_unit as usize].sampler != sampler {
             assert!(ctxt.version >= &Version(Api::Gl, 3, 3) ||
                     ctxt.version >= &Version(Api::GlEs, 3, 0) ||
                     ctxt.extensions.gl_arb_sampler_objects);

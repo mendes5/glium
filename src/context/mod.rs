@@ -287,7 +287,7 @@ impl Context {
         //       The Fraps software calls `glClear` with scissoring and reads the image of the
         //       current framebuffer.
         //       Therefore we need to bind the default framebuffer before swapping.
-        if self.state.borrow().draw_framebuffer != 0 || self.state.borrow().read_framebuffer != 0 {
+        if self.state.borrow().out_of_sync || self.state.borrow().draw_framebuffer != 0 || self.state.borrow().read_framebuffer != 0 {
             let mut ctxt = self.make_current();
 
             if ctxt.version >= &Version(Api::Gl, 3, 0) ||

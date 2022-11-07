@@ -1165,7 +1165,7 @@ pub unsafe fn bind_framebuffer(ctxt: &mut CommandContext<'_>, fbo_id: gl::types:
                                draw: bool, read: bool)
 {
     if draw && read {
-        if ctxt.state.draw_framebuffer != fbo_id || ctxt.state.read_framebuffer != fbo_id {
+        if ctxt.state.out_of_sync || ctxt.state.draw_framebuffer != fbo_id || ctxt.state.read_framebuffer != fbo_id {
             if ctxt.version >= &Version(Api::Gl, 3, 0) ||
                ctxt.version >= &Version(Api::GlEs, 2, 0) ||
                ctxt.extensions.gl_arb_framebuffer_object
@@ -1185,7 +1185,7 @@ pub unsafe fn bind_framebuffer(ctxt: &mut CommandContext<'_>, fbo_id: gl::types:
 
     } else {
 
-        if draw && ctxt.state.draw_framebuffer != fbo_id {
+        if ctxt.state.out_of_sync || draw && ctxt.state.draw_framebuffer != fbo_id {
             if ctxt.version >= &Version(Api::Gl, 3, 0) ||
                ctxt.extensions.gl_arb_framebuffer_object
             {
@@ -1204,7 +1204,7 @@ pub unsafe fn bind_framebuffer(ctxt: &mut CommandContext<'_>, fbo_id: gl::types:
             }
         }
 
-        if read && ctxt.state.read_framebuffer != fbo_id {
+        if ctxt.state.out_of_sync || read && ctxt.state.read_framebuffer != fbo_id {
             if ctxt.version >= &Version(Api::Gl, 3, 0) ||
                ctxt.extensions.gl_arb_framebuffer_object
             {

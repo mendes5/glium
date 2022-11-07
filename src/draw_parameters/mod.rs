@@ -554,7 +554,7 @@ fn sync_color_mask(ctxt: &mut context::CommandContext<'_>, mask: (bool, bool, bo
         if mask.3 { 1 } else { 0 },
     );
 
-    if ctxt.state.color_mask != mask {
+    if ctxt.state.out_of_sync || ctxt.state.color_mask != mask {
         unsafe {
             ctxt.gl.ColorMask(mask.0, mask.1, mask.2, mask.3);
         }
@@ -565,7 +565,7 @@ fn sync_color_mask(ctxt: &mut context::CommandContext<'_>, mask: (bool, bool, bo
 
 fn sync_line_width(ctxt: &mut context::CommandContext<'_>, line_width: Option<f32>) {
     if let Some(line_width) = line_width {
-        if ctxt.state.line_width != line_width {
+        if ctxt.state.out_of_sync || ctxt.state.line_width != line_width {
             unsafe {
                 ctxt.gl.LineWidth(line_width);
                 ctxt.state.line_width = line_width;
@@ -576,7 +576,7 @@ fn sync_line_width(ctxt: &mut context::CommandContext<'_>, line_width: Option<f3
 
 fn sync_point_size(ctxt: &mut context::CommandContext<'_>, point_size: Option<f32>) {
     if let Some(point_size) = point_size {
-        if ctxt.state.point_size != point_size {
+        if ctxt.state.out_of_sync || ctxt.state.point_size != point_size {
             unsafe {
                 ctxt.gl.PointSize(point_size);
                 ctxt.state.point_size = point_size;
@@ -593,27 +593,27 @@ fn sync_polygon_mode(ctxt: &mut context::CommandContext<'_>, backface_culling: B
     //  that's why `CullClockwise` uses `GL_BACK` for example
     match backface_culling {
         BackfaceCullingMode::CullingDisabled => unsafe {
-            if ctxt.state.enabled_cull_face {
+            if ctxt.state.out_of_sync || ctxt.state.enabled_cull_face {
                 ctxt.gl.Disable(gl::CULL_FACE);
                 ctxt.state.enabled_cull_face = false;
             }
         },
         BackfaceCullingMode::CullCounterClockwise => unsafe {
-            if !ctxt.state.enabled_cull_face {
+            if ctxt.state.out_of_sync || !ctxt.state.enabled_cull_face {
                 ctxt.gl.Enable(gl::CULL_FACE);
                 ctxt.state.enabled_cull_face = true;
             }
-            if ctxt.state.cull_face != gl::FRONT {
+            if ctxt.state.out_of_sync || ctxt.state.cull_face != gl::FRONT {
                 ctxt.gl.CullFace(gl::FRONT);
                 ctxt.state.cull_face = gl::FRONT;
             }
         },
         BackfaceCullingMode::CullClockwise => unsafe {
-            if !ctxt.state.enabled_cull_face {
+            if ctxt.state.out_of_sync || !ctxt.state.enabled_cull_face {
                 ctxt.gl.Enable(gl::CULL_FACE);
                 ctxt.state.enabled_cull_face = true;
             }
-            if ctxt.state.cull_face != gl::BACK {
+            if ctxt.state.out_of_sync || ctxt.state.cull_face != gl::BACK {
                 ctxt.gl.CullFace(gl::BACK);
                 ctxt.state.cull_face = gl::BACK;
             }
@@ -623,7 +623,7 @@ fn sync_polygon_mode(ctxt: &mut context::CommandContext<'_>, backface_culling: B
     // polygon mode
     unsafe {
         let polygon_mode = polygon_mode.to_glenum();
-        if ctxt.state.polygon_mode != polygon_mode {
+        if ctxt.state.out_of_sync || ctxt.state.polygon_mode != polygon_mode {
             ctxt.gl.PolygonMode(gl::FRONT_AND_BACK, polygon_mode);
             ctxt.state.polygon_mode = polygon_mode;
         }
@@ -640,7 +640,7 @@ fn sync_clip_planes_bitmask(ctxt: &mut context::CommandContext<'_>, clip_planes_
         let mut max_clip_planes: gl::types::GLint = 0;
         ctxt.gl.GetIntegerv(gl::MAX_CLIP_DISTANCES, &mut max_clip_planes);
         for i in 0..32 {
-            if clip_planes_bitmask & (1 << i) != ctxt.state.enabled_clip_planes & (1 << i) {
+            if ctxt.state.out_of_sync || clip_planes_bitmask & (1 << i) != ctxt.state.enabled_clip_planes & (1 << i) {
                 if clip_planes_bitmask & (1 << i) != 0 {
                     if i < max_clip_planes {
                         ctxt.gl.Enable(gl::CLIP_DISTANCE0 + i as u32);
@@ -659,7 +659,7 @@ fn sync_clip_planes_bitmask(ctxt: &mut context::CommandContext<'_>, clip_planes_
 }
 
 fn sync_multisampling(ctxt: &mut context::CommandContext<'_>, multisampling: bool) {
-    if ctxt.state.enabled_multisample != multisampling {
+    if ctxt.state.out_of_sync || ctxt.state.enabled_multisample != multisampling {
         unsafe {
             if multisampling {
                 ctxt.gl.Enable(gl::MULTISAMPLE);
@@ -673,7 +673,7 @@ fn sync_multisampling(ctxt: &mut context::CommandContext<'_>, multisampling: boo
 }
 
 fn sync_dithering(ctxt: &mut context::CommandContext<'_>, dithering: bool) {
-    if ctxt.state.enabled_dither != dithering {
+    if ctxt.state.out_of_sync || ctxt.state.enabled_dither != dithering {
         unsafe {
             if dithering {
                 ctxt.gl.Enable(gl::DITHER);
@@ -700,7 +700,7 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext<'_>, viewport: Optio
                         viewport.width as gl::types::GLsizei,
                         viewport.height as gl::types::GLsizei);
 
-        if ctxt.state.viewport != Some(viewport) {
+        if ctxt.state.out_of_sync || ctxt.state.viewport != Some(viewport) {
             unsafe { ctxt.gl.Viewport(viewport.0, viewport.1, viewport.2, viewport.3); }
             ctxt.state.viewport = Some(viewport);
         }
@@ -714,7 +714,7 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext<'_>, viewport: Optio
         let viewport = (0, 0, surface_dimensions.0 as gl::types::GLsizei,
                         surface_dimensions.1 as gl::types::GLsizei);
 
-        if ctxt.state.viewport != Some(viewport) {
+        if ctxt.state.out_of_sync || ctxt.state.viewport != Some(viewport) {
             unsafe { ctxt.gl.Viewport(viewport.0, viewport.1, viewport.2, viewport.3); }
             ctxt.state.viewport = Some(viewport);
         }
@@ -727,19 +727,19 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext<'_>, viewport: Optio
                        scissor.height as gl::types::GLsizei);
 
         unsafe {
-            if ctxt.state.scissor != Some(scissor) {
+            if ctxt.state.out_of_sync || ctxt.state.scissor != Some(scissor) {
                 ctxt.gl.Scissor(scissor.0, scissor.1, scissor.2, scissor.3);
                 ctxt.state.scissor = Some(scissor);
             }
 
-            if !ctxt.state.enabled_scissor_test {
+            if ctxt.state.out_of_sync || !ctxt.state.enabled_scissor_test {
                 ctxt.gl.Enable(gl::SCISSOR_TEST);
                 ctxt.state.enabled_scissor_test = true;
             }
         }
     } else {
         unsafe {
-            if ctxt.state.enabled_scissor_test {
+            if ctxt.state.out_of_sync || ctxt.state.enabled_scissor_test {
                 ctxt.gl.Disable(gl::SCISSOR_TEST);
                 ctxt.state.enabled_scissor_test = false;
             }
@@ -750,7 +750,7 @@ fn sync_viewport_scissor(ctxt: &mut context::CommandContext<'_>, viewport: Optio
 fn sync_rasterizer_discard(ctxt: &mut context::CommandContext<'_>, draw_primitives: bool)
                            -> Result<(), DrawError>
 {
-    if ctxt.state.enabled_rasterizer_discard == draw_primitives {
+    if ctxt.state.out_of_sync || ctxt.state.enabled_rasterizer_discard == draw_primitives {
         if ctxt.version >= &Version(Api::Gl, 3, 0) {
             if draw_primitives {
                 unsafe { ctxt.gl.Disable(gl::RASTERIZER_DISCARD); }
@@ -853,12 +853,12 @@ fn sync_smooth(ctxt: &mut context::CommandContext<'_>,
             PrimitiveType::LinesList | PrimitiveType::LinesListAdjacency |
             PrimitiveType::LineStrip | PrimitiveType::LineStripAdjacency |
             PrimitiveType::LineLoop => unsafe {
-                if !ctxt.state.enabled_line_smooth {
+                if ctxt.state.out_of_sync || !ctxt.state.enabled_line_smooth {
                     ctxt.state.enabled_line_smooth = true;
                     ctxt.gl.Enable(gl::LINE_SMOOTH);
                 }
 
-                if ctxt.state.smooth.0 != hint {
+                if ctxt.state.out_of_sync || ctxt.state.smooth.0 != hint {
                     ctxt.state.smooth.0 = hint;
                     ctxt.gl.Hint(gl::LINE_SMOOTH_HINT, hint);
                 }
@@ -866,12 +866,12 @@ fn sync_smooth(ctxt: &mut context::CommandContext<'_>,
 
             // polygon
             _ => unsafe {
-                if !ctxt.state.enabled_polygon_smooth {
+                if ctxt.state.out_of_sync || !ctxt.state.enabled_polygon_smooth {
                     ctxt.state.enabled_polygon_smooth = true;
                     ctxt.gl.Enable(gl::POLYGON_SMOOTH);
                 }
 
-                if ctxt.state.smooth.1 != hint {
+                if ctxt.state.out_of_sync || ctxt.state.smooth.1 != hint {
                     ctxt.state.smooth.1 = hint;
                     ctxt.gl.Hint(gl::POLYGON_SMOOTH_HINT, hint);
                 }
@@ -887,7 +887,7 @@ fn sync_smooth(ctxt: &mut context::CommandContext<'_>,
             PrimitiveType::LinesList | PrimitiveType::LinesListAdjacency |
             PrimitiveType::LineStrip | PrimitiveType::LineStripAdjacency |
             PrimitiveType::LineLoop => unsafe {
-                if ctxt.state.enabled_line_smooth {
+                if ctxt.state.out_of_sync || ctxt.state.enabled_line_smooth {
                     ctxt.state.enabled_line_smooth = false;
                     ctxt.gl.Disable(gl::LINE_SMOOTH);
                 }
@@ -895,7 +895,7 @@ fn sync_smooth(ctxt: &mut context::CommandContext<'_>,
 
             // polygon
             _ => unsafe {
-                if ctxt.state.enabled_polygon_smooth {
+                if ctxt.state.out_of_sync || ctxt.state.enabled_polygon_smooth {
                     ctxt.state.enabled_polygon_smooth = false;
                     ctxt.gl.Disable(gl::POLYGON_SMOOTH);
                 }
@@ -914,7 +914,7 @@ fn sync_provoking_vertex(ctxt: &mut context::CommandContext<'_>, value: Provokin
         ProvokingVertex::FirstVertex => gl::FIRST_VERTEX_CONVENTION,
     };
 
-    if ctxt.state.provoking_vertex == value {
+    if !ctxt.state.out_of_sync && ctxt.state.provoking_vertex == value {
         return Ok(());
     }
 
@@ -939,7 +939,7 @@ fn sync_primitive_bounding_box(ctxt: &mut context::CommandContext<'_>,
     let value = (bb.0.start, bb.1.start, bb.2.start, bb.3.start,
                  bb.0.end, bb.1.end, bb.2.end, bb.3.end);
 
-    if ctxt.state.primitive_bounding_box == value {
+    if !ctxt.state.out_of_sync && ctxt.state.primitive_bounding_box == value {
         return;
     }
 
@@ -974,7 +974,7 @@ fn sync_primitive_restart_index(ctxt: &mut context::CommandContext<'_>,
     if ctxt.version >= &Version(Api::Gl, 3, 1)   || ctxt.version >= &Version(Api::GlEs, 3, 0) ||
     ctxt.extensions.gl_arb_es3_compatibility
     {
-        if ctxt.state.enabled_primitive_fixed_restart != enabled {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_primitive_fixed_restart != enabled {
             if enabled {
                 unsafe { ctxt.gl.Enable(gl::PRIMITIVE_RESTART_FIXED_INDEX); }
                 ctxt.state.enabled_primitive_fixed_restart = true;
@@ -1002,24 +1002,24 @@ fn set_flag_enabled(ctxt: &mut context::CommandContext<'_>, cap: gl::types::GLen
 fn sync_polygon_offset(ctxt: &mut context::CommandContext<'_>, offset: PolygonOffset) {
     let (factor, units) = ctxt.state.polygon_offset;
 
-    if ctxt.state.polygon_offset != (offset.factor, offset.units) {
+    if ctxt.state.out_of_sync || ctxt.state.polygon_offset != (offset.factor, offset.units) {
         unsafe {
             ctxt.gl.PolygonOffset(offset.factor, offset.units);
         }
         ctxt.state.polygon_offset = (offset.factor, offset.units);
     }
 
-    if offset.point != ctxt.state.enabled_polygon_offset_point {
+    if ctxt.state.out_of_sync || offset.point != ctxt.state.enabled_polygon_offset_point {
         ctxt.state.enabled_polygon_offset_point = offset.point;
         set_flag_enabled(ctxt, gl::POLYGON_OFFSET_POINT, offset.point);
     }
 
-    if offset.line != ctxt.state.enabled_polygon_offset_line {
+    if ctxt.state.out_of_sync || offset.line != ctxt.state.enabled_polygon_offset_line {
         ctxt.state.enabled_polygon_offset_line = offset.line;
         set_flag_enabled(ctxt, gl::POLYGON_OFFSET_LINE, offset.line);
     }
 
-    if offset.fill != ctxt.state.enabled_polygon_offset_fill {
+    if ctxt.state.out_of_sync || offset.fill != ctxt.state.enabled_polygon_offset_fill {
         ctxt.state.enabled_polygon_offset_fill = offset.fill;
         set_flag_enabled(ctxt, gl::POLYGON_OFFSET_FILL, offset.fill);
     }

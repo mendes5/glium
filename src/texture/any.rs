@@ -209,7 +209,7 @@ pub fn new_texture<'a, F: ?Sized, P>(facade: &F, format: TextureFormatRequest,
             ptr::null()
         };
 
-        if ctxt.state.pixel_store_unpack_alignment != 1 {
+        if ctxt.state.out_of_sync || ctxt.state.pixel_store_unpack_alignment != 1 {
             ctxt.state.pixel_store_unpack_alignment = 1;
             ctxt.gl.PixelStorei(gl::UNPACK_ALIGNMENT, 1);
         }
@@ -850,7 +850,7 @@ impl TextureExt for TextureAny {
         let bind_point = self.get_bind_point();
 
         let texture_unit = ctxt.state.active_texture;
-        if ctxt.state.texture_units[texture_unit as usize].texture != self.id {
+        if ctxt.state.out_of_sync || ctxt.state.texture_units[texture_unit as usize].texture != self.id {
             unsafe { ctxt.gl.BindTexture(bind_point, self.id) };
             ctxt.state.texture_units[texture_unit as usize].texture = self.id;
         }
@@ -1337,7 +1337,7 @@ impl<'t> TextureMipmapExt for TextureAnyMipmap<'t> {
         let mut ctxt = self.texture.context.make_current();
 
         unsafe {
-            if ctxt.state.pixel_store_unpack_alignment != 1 {
+            if ctxt.state.out_of_sync || ctxt.state.pixel_store_unpack_alignment != 1 {
                 ctxt.state.pixel_store_unpack_alignment = 1;
                 ctxt.gl.PixelStorei(gl::UNPACK_ALIGNMENT, 1);
             }
@@ -1419,13 +1419,13 @@ impl<'t> TextureMipmapExt for TextureAnyMipmap<'t> {
                         let ptr = buf.as_ptr() as *const u8;
                         let ptr = ptr as usize;
                         if (ptr % 8) == 0 {
-                        } else if (ptr % 4) == 0 && ctxt.state.pixel_store_pack_alignment != 4 {
+                        } else if (ptr % 4) == 0 && (ctxt.state.out_of_sync || ctxt.state.pixel_store_pack_alignment != 4) {
                             ctxt.state.pixel_store_pack_alignment = 4;
                             ctxt.gl.PixelStorei(gl::PACK_ALIGNMENT, 4);
-                        } else if (ptr % 2) == 0 && ctxt.state.pixel_store_pack_alignment > 2 {
+                        } else if (ptr % 2) == 0 && (ctxt.state.out_of_sync || ctxt.state.pixel_store_pack_alignment > 2) {
                             ctxt.state.pixel_store_pack_alignment = 2;
                             ctxt.gl.PixelStorei(gl::PACK_ALIGNMENT, 2);
-                        } else if ctxt.state.pixel_store_pack_alignment != 1 {
+                        } else if ctxt.state.out_of_sync || ctxt.state.pixel_store_pack_alignment != 1 {
                             ctxt.state.pixel_store_pack_alignment = 1;
                             ctxt.gl.PixelStorei(gl::PACK_ALIGNMENT, 1);
                         }

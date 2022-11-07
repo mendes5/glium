@@ -644,7 +644,7 @@ impl ProgramExt for RawProgram {
     fn use_program(&self, ctxt: &mut CommandContext<'_>) {
         unsafe {
             let program_id = self.get_id();
-            if ctxt.state.program != program_id {
+            if ctxt.state.out_of_sync || ctxt.state.program != program_id {
                 match program_id {
                     Handle::Id(id) => ctxt.gl.UseProgram(id),
                     Handle::Handle(id) => ctxt.gl.UseProgramObjectARB(id),
@@ -726,7 +726,7 @@ impl Drop for RawProgram {
                     assert!(ctxt.version >= &Version(Api::Gl, 2, 0) ||
                             ctxt.version >= &Version(Api::GlEs, 2, 0));
 
-                    if ctxt.state.program == Handle::Id(id) {
+                    if ctxt.state.out_of_sync || ctxt.state.program == Handle::Id(id) {
                         ctxt.gl.UseProgram(0);
                         ctxt.state.program = Handle::Id(0);
                     }
@@ -736,7 +736,7 @@ impl Drop for RawProgram {
                 Handle::Handle(id) => {
                     assert!(ctxt.extensions.gl_arb_shader_objects);
 
-                    if ctxt.state.program == Handle::Handle(id) {
+                    if ctxt.state.out_of_sync || ctxt.state.program == Handle::Handle(id) {
                         ctxt.gl.UseProgramObjectARB(0 as gl::types::GLhandleARB);
                         ctxt.state.program = Handle::Handle(0 as gl::types::GLhandleARB);
                     }

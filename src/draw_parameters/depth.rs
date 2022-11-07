@@ -250,7 +250,7 @@ pub fn sync_depth(ctxt: &mut CommandContext<'_>, depth: &Depth) -> Result<(), Dr
         return Err(DrawError::InvalidDepthRange);
     }
 
-    if depth.range != ctxt.state.depth_range {
+    if ctxt.state.out_of_sync || depth.range != ctxt.state.depth_range {
         // TODO: WebGL requires depth.range.1 > depth.range.0
         unsafe {
             ctxt.gl.DepthRange(depth.range.0 as f64, depth.range.1 as f64);
@@ -260,13 +260,13 @@ pub fn sync_depth(ctxt: &mut CommandContext<'_>, depth: &Depth) -> Result<(), Dr
 
     if depth.test == DepthTest::Overwrite && !depth.write {
         // simply disabling GL_DEPTH_TEST
-        if ctxt.state.enabled_depth_test {
+        if ctxt.state.out_of_sync || ctxt.state.enabled_depth_test {
             unsafe { ctxt.gl.Disable(gl::DEPTH_TEST) };
             ctxt.state.enabled_depth_test = false;
         }
         return Ok(());
 
-    } else if !ctxt.state.enabled_depth_test {
+    } else if ctxt.state.out_of_sync || !ctxt.state.enabled_depth_test {
         unsafe { ctxt.gl.Enable(gl::DEPTH_TEST) };
         ctxt.state.enabled_depth_test = true;
     }
@@ -274,14 +274,14 @@ pub fn sync_depth(ctxt: &mut CommandContext<'_>, depth: &Depth) -> Result<(), Dr
     // depth test
     unsafe {
         let depth_test = depth.test.to_glenum();
-        if ctxt.state.depth_func != depth_test {
+        if ctxt.state.out_of_sync || ctxt.state.depth_func != depth_test {
             ctxt.gl.DepthFunc(depth_test);
             ctxt.state.depth_func = depth_test;
         }
     }
 
     // depth mask
-    if depth.write != ctxt.state.depth_mask {
+    if ctxt.state.out_of_sync || depth.write != ctxt.state.depth_mask {
         unsafe {
             ctxt.gl.DepthMask(if depth.write { gl::TRUE } else { gl::FALSE });
         }
