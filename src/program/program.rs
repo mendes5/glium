@@ -33,7 +33,8 @@ use crate::vertex::VertexFormat;
 /// A combination of shaders linked together.
 pub struct Program {
     raw: RawProgram,
-    outputs_srgb: bool,
+    /// Manually set it to true to disable SRGB framebuffer
+    pub outputs_srgb: bool,
     uses_point_size: bool,
 }
 
