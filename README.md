@@ -1,3 +1,40 @@
+# Changes on the fork:
+
+It adds a `unsync` function to the frame struct. 
+It is used to invalidate the OpenGL state cached that glium keeps internally, which can be usefull if you are rendering with Skia and GLium on the same OpenGL context.
+
+```rs
+  // For example, an Skia renderer or WebView renderer 
+  // using the same OpenGL context as glium makes changes
+  // to ex: gl.Viewport, or calls gl.BindFramebuffer
+  // but don't restore previous state when done
+  let skia_did_redraw = redraw_all_canvases_if_needed();
+
+  let mut target = display.draw();
+
+  // Invalidates all cached OpenGL state
+  // and forces glium to rebind and reconfigure
+  // all GPU resources before rendering
+  //
+  // Better to put it behind a if check and only 
+  // to run it when necessary to avoid reconfiguring
+  // OpenGL state every frame
+  if did_skia_redraw {
+    target.unsync();
+  }
+
+  // Now when rendering glium will call all
+  // required OpenGL functions to properly render the frame
+  target.clear_color_srgb(1.0, 1.0, 1.0, 1.0);
+
+  target.draw(...).unwrap();
+``` 
+
+Related:
+* [Provide a way to nuke glium's internal state](https://github.com/glium/glium/issues/1505) 
+* [Rendering to existing OpenGL context solution](https://groups.google.com/g/skia-discuss/c/P4GO92rxIaM)
+* [Can I combine OpenGL 3D drawing with SkiaSharp?](https://github.com/mono/SkiaSharp/issues/614#issuecomment-412271459)
+
 # glium
 
 [![Build Status](https://github.com/glium/glium/actions/workflows/ci.yml/badge.svg)](https://github.com/glium/glium/actions/workflows/ci.yml)
